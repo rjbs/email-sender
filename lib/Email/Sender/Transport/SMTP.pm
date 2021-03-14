@@ -7,7 +7,7 @@ use Email::Sender::Failure::Multi;
 use Email::Sender::Success::Partial;
 use Email::Sender::Role::HasMessage ();
 use Email::Sender::Util;
-use MooX::Types::MooseLike::Base qw(Bool Int Str HashRef);
+use MooX::Types::MooseLike::Base qw(AnyOf Bool InstanceOf Int Str HashRef);
 use Net::SMTP 3.07; # SSL support, fixed datasend
 
 use utf8 (); # See below. -- rjbs, 2015-05-14
@@ -115,15 +115,16 @@ has port => (
 
 has timeout => (is => 'ro', isa => Int, default => sub { 120 });
 
-=item C<sasl_username>: the username to use for auth; optional
+=item C<sasl_username>: the username or an L<Authen::SASL> instance to use for auth; optional
 
-=item C<sasl_password>: the password to use for auth; required if C<sasl_username> is provided
+=item C<sasl_password>: the password to use for auth; required if C<sasl_username> is provided as a string
 
 =item C<allow_partial_success>: if true, will send data even if some recipients were rejected; defaults to false
 
 =cut
 
-has sasl_username => (is => 'ro', isa => Str);
+has sasl_username => (is => 'ro',
+                      isa => AnyOf[ Str, InstanceOf['Authen::SASL'] ]);
 has sasl_password => (is => 'ro', isa => Str);
 
 has allow_partial_success => (is => 'ro', isa => Bool, default => sub { 0 });
@@ -186,7 +187,7 @@ sub _smtp_client {
 
   if ($self->sasl_username) {
     $self->_throw("sasl_username but no sasl_password")
-      unless defined $self->sasl_password;
+      unless ref $self->sasl_username or defined $self->sasl_password;
 
     unless ($smtp->auth($self->sasl_username, $self->sasl_password)) {
       if ($smtp->message =~ /MIME::Base64|Authen::SASL/) {
